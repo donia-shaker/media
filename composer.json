@@ -1,0 +1,21 @@
+{
+    "name": "donia-shaker/media-library",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "DoniaShaker\\MediaLibrary\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Donia Shaker",
+            "email": "donia.shaker11@gmail.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {
+        "laravel/framework": "^11.4",
+        "intervention/image": "^3.6"
+    }
+}
