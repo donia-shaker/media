@@ -2,7 +2,9 @@
 
 namespace DoniaShaker\MediaLibrary;
 
+use Illuminate\Contracts\Config\Repository;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Config;
 
 class MediaServiceProvider extends ServiceProvider
 {
@@ -15,7 +17,7 @@ class MediaServiceProvider extends ServiceProvider
     {
         $this->publishes([
             __DIR__ . '/../config/media.php' => config_path('media.php')
-        ]);
+        ], 'media');
     }
 
     /**
@@ -25,5 +27,7 @@ class MediaServiceProvider extends ServiceProvider
      */
     public function register()
     {
+        $this->mergeConfigFrom(__DIR__ . '/../config/media.php', 'media');
     }
+
 }

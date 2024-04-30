@@ -1,24 +1,29 @@
 <?php
 
 namespace DoniaShaker\MediaLibrary;
-
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
 use Models\Media;
 
-use function PHPUnit\Framework\directoryExists;
 
 class MediaController
 {
-    private $manager = new ImageManager(new Driver());
-    private $directory = config('media.useStorage') ? config('media.storagePath') : config('media.publicPath');
+    protected  $manager;
+    protected  $directory;
+    protected $config;
+
+    public function __construct(){
+        $this->manager = new ImageManager(new Driver());
+        config('media');
+        $this->directory = config('media.useStorage') ? config('media.storagePath') : config('media.publicPath');
+    }
 
     public function uploadImage($model, $model_id, $file)
     {
 
-        if (!is_dir($this->directory . 'images/' . $model)) {
-            mkdir(($this->directory . 'images/' . $model), 0777, true);
+        if (!is_dir($this->directory . '/images/' . $model)) {
+            mkdir(($this->directory . '/images/' . $model), 0777, true);
         }
 
         $data['name'] = date('YmdHis') . '-' . uniqid();
@@ -29,7 +34,7 @@ class MediaController
             $this->manager
                 ->read($file)
                 ->toWebp(80)
-                ->save($this->directory . 'images/' . $data['file_name']);
+                ->save($this->directory . '/images/' . $data['file_name']);
             $data['image'] = $data['file_name'];
         } catch (\Exception $e) {
             $data['image'] = null;
@@ -41,14 +46,14 @@ class MediaController
     public function createThumb($model, $model_id, $name)
     {
 
-        if (!file_exists($this->directory . 'images/' . $model . '/thumb/')) {
-            mkdir(($this->directory . 'images/' . $model . '/thumb/'), 0777, true);
+        if (!file_exists($this->directory . '/images/' . $model . '/thumb/')) {
+            mkdir(($this->directory . '/images/' . $model . '/thumb/'), 0777, true);
         }
         $thumb_name = $model . '/thumb/' . $model_id . '-' . $name . '.webp';
 
         try {
             $this->manager
-                ->read($this->directory . 'images/' . $model . '/' . $model_id . '-' . $name . '.webp')->scale(width: 400)->save($this->directory . 'images/' . $thumb_name);
+                ->read($this->directory . '/images/' . $model . '/' . $model_id . '-' . $name . '.webp')->scale(width: 400)->save($this->directory . '/images/' . $thumb_name);
             $data['thumb'] = $thumb_name;
         } catch (\Exception $e) {
             $data['thumb'] = null;
@@ -99,7 +104,7 @@ class MediaController
             $this->manager
                 ->read($file)
                 ->toWebp(80)
-                ->save($this->directory . 'images/temp/' . $data['file_name']);
+                ->save($this->directory . '/images/temp/' . $data['file_name']);
 
             $data['image'] = $data['file_name'];
 
