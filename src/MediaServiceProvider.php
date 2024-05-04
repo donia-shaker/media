@@ -18,6 +18,9 @@ class MediaServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__ . '/../config/media.php' => config_path('media.php')
         ], 'media');
+        $this->publishesMigrations([
+            __DIR__ . '/../database/migrations' => database_path('migrations'),
+        ]);
     }
 
     /**
@@ -28,6 +31,6 @@ class MediaServiceProvider extends ServiceProvider
     public function register()
     {
         $this->mergeConfigFrom(__DIR__ . '/../config/media.php', 'media');
+        $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
     }
-
 }

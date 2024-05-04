@@ -1,6 +1,6 @@
 <?php
 
-namespace Models;
+namespace DoniaShaker\MediaLibrary\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;

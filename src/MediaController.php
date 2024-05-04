@@ -1,19 +1,23 @@
 <?php
 
 namespace DoniaShaker\MediaLibrary;
-use Illuminate\Contracts\Config\Repository as ConfigRepository;
+
+use DoniaShaker\MediaLibrary\Models\Media;
+use Illuminate\Support\Facades\File;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
-use Models\Media;
 
 
 class MediaController
 {
     protected  $manager;
     protected  $directory;
+    protected $media;
     protected $config;
 
-    public function __construct(){
+    public function __construct($media = null)
+    {
+        $this->media = $media;
         $this->manager = new ImageManager(new Driver());
         config('media');
         $this->directory = config('media.useStorage') ? config('media.storagePath') : config('media.publicPath');
@@ -88,17 +92,17 @@ class MediaController
         return $data;
     }
 
-    
+
     public function uploadTempImage($model, $model_id, $file)
     {
-        if (! file_exists($this->directory.'images/temp/'.$model)) {
-            mkdir(($this->directory.'images/temp/'.$model), 0777, true);
+        if (!file_exists($this->directory . '/images/temp/' . $model)) {
+            mkdir(($this->directory . '/images/temp/' . $model), 0777, true);
         }
 
-        $data['name'] = date('YmdHis').'-'.uniqid();
+        $data['name'] = date('YmdHis') . '-' . uniqid();
         $data['extension'] = explode('.', $file->getClientOriginalName())[1];
 
-        $data['file_name'] = $model.'/'.$model_id.'-'.$data['name'].'.'.$data['extension'];
+        $data['file_name'] = $model . '/' . $model_id . '-' . $data['name'] . '.' . $data['extension'];
 
         try {
             $this->manager
@@ -107,9 +111,7 @@ class MediaController
                 ->save($this->directory . '/images/temp/' . $data['file_name']);
 
             $data['image'] = $data['file_name'];
-
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::channel('daily')->error($e);
 
             $data['image'] = null;
         }
@@ -117,7 +119,7 @@ class MediaController
         return $data;
     }
 
-    
+
     public function saveTempImage($model, $model_id, $file)
     {
         $data['image'] = $this->uploadTempImage($model, $model_id, $file);
@@ -132,33 +134,110 @@ class MediaController
             'file_name' => $data['image']['name'],
             'format'    => $data['image']['extension'],
             'is_active' => 0,
+            'is_temp' => 1,
         ]);
 
         return $data;
     }
 
-    public function convertMedia($model , $id)
+    public function convertMedia($model, $model_id, $id)
     {
         try {
 
-            $images = Media::where('model', $model)->where('model_id', $id)->where('format', '!=', 'webp')->get();
+            $image = Media::where('id', $id)->first();
 
             // return $images;
-            foreach ($images as $image) {
-                $main_image = $this->manager->read($this->directory.'images/temp/'.$image->model.'/'.$image->model_id.'-'.$image->file_name.'.'.$image->format);
+            $main_image = $this->manager->read($this->directory . 'images/temp/' . $image->model . '/' . $image->model_id . '-' . $image->file_name . '.' . $image->format);
 
-                $save_image = $this->saveImage($model, $id, $main_image);
-                $image->delete();
+            $save_image = $this->saveImage($model, $model_id, $main_image);
 
-                $old_image = \Illuminate\Support\Facades\File::delete($this->directory.'images/temp/'.$image->model.'/'.$image->model_id.'-'.$image->file_name.'.'.$image->format);
+            $this->deleteTemp($id);
 
+            return response()->json([
+                'message' => 'success',
+            ], 200);
+        } catch (\Exception $e) {
+
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function deleteTemp($id)
+    {
+        try {
+            $image = Media::where('id', $id)->first();
+
+            if (!file_exists($this->directory . '/images/temp/' . $image->model . '/' . $image->model_id . '-' . $image->file_name . '.' . $image->format) || $image->is_temp == 0) {
+                return response()->json([
+                    'message' => 'There is no image file to delete or its not a temp image',
+                ], 500);
+            } else
+                $old_image = File::delete($this->directory . '/images/temp/' . $image->model . '/' . $image->model_id . '-' . $image->file_name . '.' . $image->format);
+
+            $image->delete();
+
+            return response()->json([
+                'message' => 'success',
+            ], 200);
+        } catch (\Exception $e) {
+
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function getImageUrl($type = null)
+    {
+        // type [null, 'thumb', 'temp']
+        if ($this->media)
+            return $this->directory . '/images' . ($type ? '/temp' : '') . '/' . $this->media['model'] . '/' . $this->media['model_id'] . '-' . $this->media['file_name'] . '.' . $this->media['format'];
+        return response()->json([
+            'message' => 'no file found',
+        ], 500);
+    }
+
+    public function uploadFile($model, $model_id, $file)
+    {
+        try {
+
+            if (!file_exists($this->directory . '/pdf/' . $model)) {
+                mkdir(($this->directory . '/pdf/' . $model), 0777, true);
             }
 
-            return redirect()->back()->with(['success' => 'تمت الموافقة على الصور']);
-        } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::channel('daily')->error($e);
+            $data['name'] = date('YmdHis') . '-' . uniqid() . '-' . explode('.', $file->getClientOriginalName())[0];
+            $data['extension'] = explode('.', $file->getClientOriginalName())[1];
 
-            return redirect()->back()->with(['error' => $e->getMessage()]);
+            $data['file_name'] = $model . '/' . $model_id . '-' . $data['name'] . '.' . $data['extension'];
+
+
+            $file->move(public_path('pdf'), $this->directory . '/pdf/' . $data['file_name']);
+            $new_image = Media::create([
+                'model' => $model,
+                'model_id' => $model_id,
+                'file_name' => $data['name'],
+                'format' => $data['extension'],
+            ]);
+            return response()->json([
+                'message' => 'success',
+            ], 200);
+        } catch (\Exception $e) {
+
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 500);
         }
+    }
+
+    public function getFileUrl()
+    {
+        // type [null, 'thumb', 'temp']
+        if ($this->media)
+            return $this->directory . '/pdf/' . $this->media['model'] . '/' . $this->media['model_id'] . '-' . $this->media['file_name'] . '.' . $this->media['format'];
+        return response()->json([
+            'message' => 'no file found',
+        ], 500);
     }
 }

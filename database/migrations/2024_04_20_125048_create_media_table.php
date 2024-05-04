@@ -22,6 +22,7 @@ return new class extends Migration
             $table->text('file_name');
             $table->boolean('has_thumb')->default(0);
             $table->boolean('is_active')->default(1);
+            $table->boolean('is_temp')->default(0);
             $table->softDeletes();
             $table->timestamps();
         });
