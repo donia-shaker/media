@@ -13,4 +13,17 @@ class Media extends Model
 
     protected $guarded = ['id', 'created_at', 'updated_at'];
 
+    protected $appends = ['image_url', 'thumb_url'];
+
+    public function getImageUrlAttribute(){
+        $type = $this->is_temp ? '/temp' : '';
+        return $this->directory . '/images' . $type . '/' . $this->model . '/' . $this->media['model_id'] . '-' . $this->media['file_name'] . '.' . $this->media['format'];
+    }
+
+    public function getThumbUrlAttribute(){
+        $type = $this->is_temp ?  null : '/thumb';
+        return $type == null ? null : $this->directory . '/images' . $type   . '/' . $this->media['model'] . '/' . $this->media['model_id'] . '-' . $this->media['file_name'] . '.' . $this->media['format'];
+
+    }
+
 }

@@ -3,6 +3,7 @@
 namespace DoniaShaker\MediaLibrary;
 
 use DoniaShaker\MediaLibrary\Models\Media;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
@@ -10,7 +11,7 @@ use Intervention\Image\Drivers\Gd\Driver;
 
 class MediaController
 {
-    protected  $manager;
+    public  $manager;
     protected  $directory;
     protected $media;
     protected $config;
@@ -100,21 +101,17 @@ class MediaController
         }
 
         $data['name'] = date('YmdHis') . '-' . uniqid();
+        // throw new \Exception($file->getClientOriginalName());
         $data['extension'] = explode('.', $file->getClientOriginalName())[1];
 
         $data['file_name'] = $model . '/' . $model_id . '-' . $data['name'] . '.' . $data['extension'];
 
-        try {
             $this->manager
                 ->read($file)
                 ->toWebp(80)
                 ->save($this->directory . '/images/temp/' . $data['file_name']);
 
             $data['image'] = $data['file_name'];
-        } catch (\Exception $e) {
-
-            $data['image'] = null;
-        }
 
         return $data;
     }
@@ -142,102 +139,112 @@ class MediaController
 
     public function convertMedia($model, $model_id, $id)
     {
-        try {
+        $image = Media::where('id', $id)->first();
 
-            $image = Media::where('id', $id)->first();
+        // return $images;
+        // $main_image = new UploadedFile($this->directory . '/images/temp/' . $image->model . '/' . $image->model_id . '-' . $image->file_name . '.' . $image->format,$image->model_id . '-' . $image->file_name . '.' . $image->format);
 
-            // return $images;
-            $main_image = $this->manager->read($this->directory . 'images/temp/' . $image->model . '/' . $image->model_id . '-' . $image->file_name . '.' . $image->format);
+        $main_image = $this->manager->read($this->directory . '/images/temp/' . $image->model . '/' . $image->model_id . '-' . $image->file_name . '.' . $image->format);
 
-            $save_image = $this->saveImage($model, $model_id, $main_image);
+        $save_image = $this->saveImage($model, $model_id, $main_image);
 
-            $this->deleteTemp($id);
+        $this->deleteTemp($id);
 
-            return response()->json([
-                'message' => 'success',
-            ], 200);
-        } catch (\Exception $e) {
-
-            return response()->json([
-                'message' => $e->getMessage(),
-            ], 500);
-        }
+        return response()->json([
+            'message' => 'success',
+        ], 200);
     }
 
     public function deleteTemp($id)
     {
-        try {
-            $image = Media::where('id', $id)->first();
+        $image = Media::where('id', $id)->first();
 
-            if (!file_exists($this->directory . '/images/temp/' . $image->model . '/' . $image->model_id . '-' . $image->file_name . '.' . $image->format) || $image->is_temp == 0) {
-                return response()->json([
-                    'message' => 'There is no image file to delete or its not a temp image',
-                ], 500);
-            } else
-                $old_image = File::delete($this->directory . '/images/temp/' . $image->model . '/' . $image->model_id . '-' . $image->file_name . '.' . $image->format);
-
-            $image->delete();
-
+        if (!file_exists($this->directory . '/images/temp/' . $image->model . '/' . $image->model_id . '-' . $image->file_name . '.' . $image->format) || $image->is_temp == 0) {
             return response()->json([
-                'message' => 'success',
-            ], 200);
-        } catch (\Exception $e) {
-
-            return response()->json([
-                'message' => $e->getMessage(),
+                'message' => 'There is no image file to delete or its not a temp image',
             ], 500);
-        }
-    }
+        } else
+            $old_image = File::delete($this->directory . '/images/temp/' . $image->model . '/' . $image->model_id . '-' . $image->file_name . '.' . $image->format);
 
-    public function getImageUrl($type = null)
-    {
-        // type [null, 'thumb', 'temp']
-        if ($this->media)
-            return $this->directory . '/images' . ($type ? '/temp' : '') . '/' . $this->media['model'] . '/' . $this->media['model_id'] . '-' . $this->media['file_name'] . '.' . $this->media['format'];
+        $image->delete();
+
         return response()->json([
-            'message' => 'no file found',
-        ], 500);
+            'message' => 'success',
+        ], 200);
     }
 
     public function uploadFile($model, $model_id, $file)
     {
-        try {
+        $data['name'] = date('YmdHis') . '-' . uniqid() . '-' . explode('.', $file->getClientOriginalName())[0];
+        $data['extension'] = explode('.', $file->getClientOriginalName())[1];
 
-            if (!file_exists($this->directory . '/pdf/' . $model)) {
-                mkdir(($this->directory . '/pdf/' . $model), 0777, true);
-            }
-
-            $data['name'] = date('YmdHis') . '-' . uniqid() . '-' . explode('.', $file->getClientOriginalName())[0];
-            $data['extension'] = explode('.', $file->getClientOriginalName())[1];
-
-            $data['file_name'] = $model . '/' . $model_id . '-' . $data['name'] . '.' . $data['extension'];
-
-
-            $file->move(public_path('pdf'), $this->directory . '/pdf/' . $data['file_name']);
-            $new_image = Media::create([
-                'model' => $model,
-                'model_id' => $model_id,
-                'file_name' => $data['name'],
-                'format' => $data['extension'],
-            ]);
-            return response()->json([
-                'message' => 'success',
-            ], 200);
-        } catch (\Exception $e) {
-
-            return response()->json([
-                'message' => $e->getMessage(),
-            ], 500);
+        if (!file_exists($this->directory . '/' . $data['extension'] . '/' . $model)) {
+            mkdir(($this->directory . '/' . $data['extension'] . '/' . $model), 0777, true);
         }
+
+
+        $data['file_name'] = $model . '/' . $model_id . '-' . $data['name'] . '.' . $data['extension'];
+
+
+        $file->move($this->directory . '/' . $data['extension'] . '/' . $model,  $data['file_name']);
+        $new_image = Media::create([
+            'model' => $model,
+            'model_id' => $model_id,
+            'file_name' => $data['name'],
+            'format' => $data['extension'],
+        ]);
+        return response()->json([
+            'message' => 'success',
+        ], 200);
     }
 
-    public function getFileUrl()
+
+    public function audio($model, $model_id, $file)
     {
-        // type [null, 'thumb', 'temp']
-        if ($this->media)
-            return $this->directory . '/pdf/' . $this->media['model'] . '/' . $this->media['model_id'] . '-' . $this->media['file_name'] . '.' . $this->media['format'];
+        if (!file_exists($this->directory . '/audio/' . $model)) {
+            mkdir(($this->directory . '/audio/' . $model), 0777, true);
+        }
+
+        $data['name'] = date('YmdHis') . '-' . uniqid() . '-' . explode('.', $file->getClientOriginalName())[0];
+        $data['extension'] = explode('.', $file->getClientOriginalName())[1];
+
+        $data['file_name'] = $model . '/' . $model_id . '-' . $data['name'] . '.' . $data['extension'];
+
+
+        $file->move($this->directory . '/audio/' . $model,  $data['file_name']);
+        $new_image = Media::create([
+            'model' => $model,
+            'model_id' => $model_id,
+            'file_name' => $data['name'],
+            'format' => $data['extension'],
+        ]);
         return response()->json([
-            'message' => 'no file found',
-        ], 500);
+            'message' => 'success',
+        ], 200);
+    }
+
+    public function video($model, $model_id, $file)
+    {
+
+        if (!file_exists($this->directory . '/video/' . $model)) {
+            mkdir(($this->directory . '/video/' . $model), 0777, true);
+        }
+
+        $data['name'] = date('YmdHis') . '-' . uniqid() . '-' . explode('.', $file->getClientOriginalName())[0];
+        $data['extension'] = explode('.', $file->getClientOriginalName())[1];
+
+        $data['file_name'] = $model . '/' . $model_id . '-' . $data['name'] . '.' . $data['extension'];
+
+
+        $file->move($this->directory . '/video/' . $model,  $data['file_name']);
+        $new_image = Media::create([
+            'model' => $model,
+            'model_id' => $model_id,
+            'file_name' => $data['name'],
+            'format' => $data['extension'],
+        ]);
+        return response()->json([
+            'message' => 'success',
+        ], 200);
     }
 }
